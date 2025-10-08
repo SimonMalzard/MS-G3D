@@ -4,6 +4,17 @@ test_feeder_args:
   data_path: ./data/ntu120/xsub/val_data_joint.npy
   label_path: ./data/ntu120/xsub/val_label.pkl
   debug: False
+  length_path: ./data/ntu120/xsub/val_data_len.npy
+  debug: False
+  data_degradation: False
+  data_degradation_type: 'delete' # options: "ucl", "delete", "repeat_previous", "repeat_next", "interpolate"
+  drop_rate: 0.0
+  structured_degredation: True
+  structured_degredation_type: 'frame_rate' # options: "reduced_resolution", "frame_rate"
+  structured_res: 10
+  FPS: 3
+  chunks: 1
+  mitigation: True
 
 # model
 model: model.msg3d.Model

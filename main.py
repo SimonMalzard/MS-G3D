@@ -18,7 +18,8 @@ import torch.optim as optim
 from tqdm import tqdm
 from tensorboardX import SummaryWriter
 from torch.optim.lr_scheduler import MultiStepLR
-import apex
+import sys
+#import apex
 
 from utils import count_params, import_class
 
@@ -574,9 +575,12 @@ class Processor():
                 score_batches = []
                 step = 0
                 process = tqdm(self.data_loader[ln], dynamic_ncols=True)
-                for batch_idx, (data, label, index) in enumerate(process):
+
+                for batch_idx, (data, label, length, index) in enumerate(process):
+                    #data = interpolate(data, length)
                     data = data.float().cuda(self.output_device)
                     label = label.long().cuda(self.output_device)
+                    length = length.long().cuda(self.output_device)
                     output = self.model(data)
                     if isinstance(output, tuple):
                         output, l1 = output
@@ -667,6 +671,24 @@ class Processor():
 
             self.print_log('Done.\n')
 
+def interpolate(data, length):
+    # data: N, C, T, V, M
+    # reshape to N*M*V, T, C
+    # interpolate the steams
+    N, C, T, V, M = data.shape
+    max_length = int(max(length).item())
+    if max_length<100:
+        max_length = 100
+    for i in range(data.shape[0]):
+        data_i = data[i].permute(0,2,3,1).reshape(
+            C*V * M, T)
+        
+        tmp_data = data_i[:, :max_length][:,-1].repeat(max_length,1).permute(1,0)
+        tmp_data[:, :int(length[i].item())] = data_i[:, :int(length[i].item())]
+        
+        data[i, :, :max_length] = tmp_data.reshape(C,V,M, max_length).permute(0,3,1,2) # (C,V,M,T') -> (C,T',V,M)
+    return data[:, :, :max_length]
+
 
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -684,7 +706,7 @@ def main():
     p = parser.parse_args()
     if p.config is not None:
         with open(p.config, 'r') as f:
-            default_arg = yaml.load(f)
+            default_arg = yaml.load(f, Loader=yaml.FullLoader)
         key = vars(p).keys()
         for k in default_arg.keys():
             if k not in key:
